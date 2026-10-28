@@ -89,10 +89,10 @@ diagnose_system() {
     if lsmod | grep -q "^nouveau "; then
         warn "Active GPU driver is 'nouveau' (nvidia fallback active)!"
         issues=$((issues + 1))
-    elif lsmod | grep -q "^nvidia_drm "; then
-        ok "Active GPU driver is 'nvidia_drm'."
+    elif lsmod | grep -qE "^nvidia(_drm)? "; then
+        ok "Active GPU driver is 'nvidia' / 'nvidia_drm'."
     else
-        warn "Neither 'nvidia_drm' nor 'nouveau' is currently loaded."
+        warn "Neither 'nvidia' nor 'nouveau' is currently loaded."
     fi
 
     # 2. Check kernel DRM headers for drm_fb_helper.h removal
