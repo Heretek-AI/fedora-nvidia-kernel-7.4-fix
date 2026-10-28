@@ -86,10 +86,10 @@ diagnose_system() {
         echo "$gpu_info" | sed 's/^/  /'
     fi
 
-    if lsmod | grep -q "^nouveau "; then
+    if [[ -d /sys/module/nouveau ]]; then
         warn "Active GPU driver is 'nouveau' (nvidia fallback active)!"
         issues=$((issues + 1))
-    elif lsmod | grep -qE "^nvidia(_drm)? "; then
+    elif [[ -d /sys/module/nvidia_drm || -d /sys/module/nvidia ]]; then
         ok "Active GPU driver is 'nvidia' / 'nvidia_drm'."
     else
         warn "Neither 'nvidia' nor 'nouveau' is currently loaded."
@@ -205,7 +205,7 @@ else
 fi
 
 info "Step 5/5: Activating nvidia-drm driver..."
-if [[ "${TARGET_KVER}" == "$(uname -r)" ]] && lsmod | grep -q "^nouveau "; then
+if [[ "${TARGET_KVER}" == "$(uname -r)" ]] && [[ -d /sys/module/nouveau ]]; then
     info "Attempting to unload fallback 'nouveau' module and load 'nvidia_drm'..."
     systemctl stop sddm.service 2>/dev/null || true
     for vt in /sys/class/vtconsole/vtcon*; do
