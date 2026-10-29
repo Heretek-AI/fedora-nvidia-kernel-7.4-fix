@@ -283,7 +283,10 @@ HOOK
         prebuilt_rpm="$(find "$SCRIPT_DIR" /home/john/.gemini/antigravity-cli/brain/*/scratch/rpmbuild/RPMS/x86_64 -name "kmod-nvidia-${TARGET_KVER}-*.rpm" 2>/dev/null | head -n 1 || true)"
         if [[ -n "$prebuilt_rpm" && -f "$prebuilt_rpm" ]]; then
             info "Found prebuilt RPM: $(basename "$prebuilt_rpm"). Installing..."
-            rpm -Uvh --replacepkgs "$prebuilt_rpm"
+            if ! rpm -Uvh --nosignature --replacepkgs "$prebuilt_rpm"; then
+                warn "Direct RPM install failed, trying dnf / akmods..."
+                dnf install -y --nogpgcheck "$prebuilt_rpm" || akmods --force --kernels "${TARGET_KVER}"
+            fi
             depmod -a "${TARGET_KVER}"
             ok "Installed $(basename "$prebuilt_rpm")."
         else
