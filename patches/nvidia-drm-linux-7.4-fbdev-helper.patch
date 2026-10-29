@@ -1,6 +1,49 @@
---- a/kernel-open/nvidia-drm/nvidia-drm-drv.c
-+++ b/kernel-open/nvidia-drm/nvidia-drm-drv.c
-@@ -64,7 +64,11 @@
+diff -uNr a/kernel/conftest.sh b/kernel/conftest.sh
+--- a/kernel/conftest.sh	2026-10-06 00:05:17.000000000 -0400
++++ b/kernel/conftest.sh	2026-10-29 12:10:43.498401406 -0400
+@@ -4450,7 +4450,11 @@
+             # in v6.11.
+             #
+             CODE="
+-            #include <drm/drm_fb_helper.h>
++            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
++#include <drm/clients/drm_fbdev_helper.h>
++#else
++#include <drm/drm_fb_helper.h>
++#endif
+             #if defined(NV_DRM_DRM_FBDEV_GENERIC_H_PRESENT)
+             #include <drm/drm_fbdev_generic.h>
+             #endif
+@@ -4470,7 +4474,11 @@
+             # 1000634477d8 ("drm/fbdev-ttm:Convert to client-setup") in v6.13.
+             #
+             CODE="
+-            #include <drm/drm_fb_helper.h>
++            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
++#include <drm/clients/drm_fbdev_helper.h>
++#else
++#include <drm/drm_fb_helper.h>
++#endif
+             #if defined(NV_DRM_DRM_FBDEV_TTM_H_PRESENT)
+             #include <drm/drm_fbdev_ttm.h>
+             #endif
+@@ -4492,7 +4500,11 @@
+             # in linux-next b86711c6d6e2.
+             #
+             CODE="
+-            #include <drm/drm_fb_helper.h>
++            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
++#include <drm/clients/drm_fbdev_helper.h>
++#else
++#include <drm/drm_fb_helper.h>
++#endif
+             #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
+             #include <drm/drm_client_setup.h>
+             #elif defined(NV_DRM_CLIENTS_DRM_CLIENT_SETUP_H_PRESENT)
+diff -uNr a/kernel/nvidia-drm/nvidia-drm-drv.c b/kernel/nvidia-drm/nvidia-drm-drv.c
+--- a/kernel/nvidia-drm/nvidia-drm-drv.c	2026-10-06 00:39:40.000000000 -0400
++++ b/kernel/nvidia-drm/nvidia-drm-drv.c	2026-10-29 12:10:43.502785036 -0400
+@@ -64,8 +64,12 @@
  #endif
  
  #if defined(NV_DRM_FBDEV_AVAILABLE)
@@ -8,13 +51,57 @@
 +#include <drm/clients/drm_fbdev_helper.h>
 +#else
  #include <drm/drm_fb_helper.h>
-+#endif
  #endif
++#endif
  
  #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
---- a/kernel/nvidia-drm/nvidia-drm-drv.c
-+++ b/kernel/nvidia-drm/nvidia-drm-drv.c
-@@ -64,7 +64,11 @@
+ #include <drm/drm_client_setup.h>
+diff -uNr a/kernel-open/conftest.sh b/kernel-open/conftest.sh
+--- a/kernel-open/conftest.sh	2026-10-06 00:05:17.000000000 -0400
++++ b/kernel-open/conftest.sh	2026-10-29 12:10:43.506401546 -0400
+@@ -4450,7 +4450,11 @@
+             # in v6.11.
+             #
+             CODE="
+-            #include <drm/drm_fb_helper.h>
++            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
++#include <drm/clients/drm_fbdev_helper.h>
++#else
++#include <drm/drm_fb_helper.h>
++#endif
+             #if defined(NV_DRM_DRM_FBDEV_GENERIC_H_PRESENT)
+             #include <drm/drm_fbdev_generic.h>
+             #endif
+@@ -4470,7 +4474,11 @@
+             # 1000634477d8 ("drm/fbdev-ttm:Convert to client-setup") in v6.13.
+             #
+             CODE="
+-            #include <drm/drm_fb_helper.h>
++            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
++#include <drm/clients/drm_fbdev_helper.h>
++#else
++#include <drm/drm_fb_helper.h>
++#endif
+             #if defined(NV_DRM_DRM_FBDEV_TTM_H_PRESENT)
+             #include <drm/drm_fbdev_ttm.h>
+             #endif
+@@ -4492,7 +4500,11 @@
+             # in linux-next b86711c6d6e2.
+             #
+             CODE="
+-            #include <drm/drm_fb_helper.h>
++            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
++#include <drm/clients/drm_fbdev_helper.h>
++#else
++#include <drm/drm_fb_helper.h>
++#endif
+             #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
+             #include <drm/drm_client_setup.h>
+             #elif defined(NV_DRM_CLIENTS_DRM_CLIENT_SETUP_H_PRESENT)
+diff -uNr a/kernel-open/nvidia-drm/nvidia-drm-drv.c b/kernel-open/nvidia-drm/nvidia-drm-drv.c
+--- a/kernel-open/nvidia-drm/nvidia-drm-drv.c	2026-10-06 00:39:40.000000000 -0400
++++ b/kernel-open/nvidia-drm/nvidia-drm-drv.c	2026-10-29 12:10:43.509985758 -0400
+@@ -64,8 +64,12 @@
  #endif
  
  #if defined(NV_DRM_FBDEV_AVAILABLE)
@@ -22,83 +109,8 @@
 +#include <drm/clients/drm_fbdev_helper.h>
 +#else
  #include <drm/drm_fb_helper.h>
-+#endif
  #endif
++#endif
  
  #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
---- a/kernel-open/conftest.sh
-+++ b/kernel-open/conftest.sh
-@@ -5432,7 +5432,11 @@
-             # in v6.11.
-             #
-             CODE="
-+            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
-+            #include <drm/clients/drm_fbdev_helper.h>
-+            #else
-             #include <drm/drm_fb_helper.h>
-+            #endif
-             #if defined(NV_DRM_DRM_FBDEV_GENERIC_H_PRESENT)
-             #include <drm/drm_fbdev_generic.h>
-             #endif
-@@ -5451,7 +5455,11 @@
-             # 1000634477d8 (\"drm/fbdev-ttm:Convert to client-setup\") in v6.13.
-             #
-             CODE="
-+            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
-+            #include <drm/clients/drm_fbdev_helper.h>
-+            #else
-             #include <drm/drm_fb_helper.h>
-+            #endif
-             #if defined(NV_DRM_DRM_FBDEV_TTM_H_PRESENT)
-             #include <drm/drm_fbdev_ttm.h>
-             #endif
-@@ -5472,7 +5480,11 @@
-             # in linux-next b86711c6d6e2.
-             #
-             CODE="
-+            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
-+            #include <drm/clients/drm_fbdev_helper.h>
-+            #else
-             #include <drm/drm_fb_helper.h>
-+            #endif
-             #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
-             #include <drm/drm_client_setup.h>
-             #elif defined(NV_DRM_CLIENTS_DRM_CLIENT_SETUP_H_PRESENT)
---- a/kernel/conftest.sh
-+++ b/kernel/conftest.sh
-@@ -5432,7 +5432,11 @@
-             # in v6.11.
-             #
-             CODE="
-+            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
-+            #include <drm/clients/drm_fbdev_helper.h>
-+            #else
-             #include <drm/drm_fb_helper.h>
-+            #endif
-             #if defined(NV_DRM_DRM_FBDEV_GENERIC_H_PRESENT)
-             #include <drm/drm_fbdev_generic.h>
-             #endif
-@@ -5451,7 +5455,11 @@
-             # 1000634477d8 (\"drm/fbdev-ttm:Convert to client-setup\") in v6.13.
-             #
-             CODE="
-+            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
-+            #include <drm/clients/drm_fbdev_helper.h>
-+            #else
-             #include <drm/drm_fb_helper.h>
-+            #endif
-             #if defined(NV_DRM_DRM_FBDEV_TTM_H_PRESENT)
-             #include <drm/drm_fbdev_ttm.h>
-             #endif
-@@ -5472,7 +5480,11 @@
-             # in linux-next b86711c6d6e2.
-             #
-             CODE="
-+            #if defined(__has_include) && __has_include(<drm/clients/drm_fbdev_helper.h>)
-+            #include <drm/clients/drm_fbdev_helper.h>
-+            #else
-             #include <drm/drm_fb_helper.h>
-+            #endif
-             #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
-             #include <drm/drm_client_setup.h>
-             #elif defined(NV_DRM_CLIENTS_DRM_CLIENT_SETUP_H_PRESENT)
+ #include <drm/drm_client_setup.h>

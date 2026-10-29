@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+# /etc/kernel/install.d/90-nvidia-drm-fb-helper-compat.install
+#
+# Automatically links <drm/drm_fb_helper.h> to <drm/clients/drm_fbdev_helper.h>
+# on Linux 7.4+ kernels before akmods (95-akmodsposttrans.install) runs.
+set -euo pipefail
+
+KVER="${2:-}"
+for kdir in "/usr/src/kernels/${KVER}" "/usr/src/kernels/${KVER}+debug" /usr/src/kernels/*; do
+    if [[ -d "$kdir/include/drm" && -f "$kdir/include/drm/clients/drm_fbdev_helper.h" && ! -e "$kdir/include/drm/drm_fb_helper.h" ]]; then
+        ln -sf clients/drm_fbdev_helper.h "$kdir/include/drm/drm_fb_helper.h"
+    fi
+done
+exit 0

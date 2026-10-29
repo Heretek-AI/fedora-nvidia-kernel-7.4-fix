@@ -1,0 +1,20 @@
+diff -uNr a/kernel-open/nvidia-uvm/uvm_hmm.c c/kernel-open/nvidia-uvm/uvm_hmm.c
+--- a/kernel-open/nvidia-uvm/uvm_hmm.c	2026-10-06 00:57:01.000000000 -0400
++++ c/kernel-open/nvidia-uvm/uvm_hmm.c	2026-10-29 12:10:55.021089008 -0400
+@@ -4012,6 +4012,16 @@
+ 
+ // TODO: Bug 3660968: Remove this hack as soon as HMM migration is implemented
+ // for VMAs other than anonymous private memory.
++#ifndef VM_SPECIAL
++#define VM_SPECIAL (VM_IO | VM_DONTEXPAND | VM_PFNMAP | VM_MIXEDMAP)
++#endif
++
++#if defined(__has_include) && !__has_include(<linux/hugetlb_inline.h>)
++#ifndef is_vm_hugetlb_page
++#define is_vm_hugetlb_page(vma) vma_is_hugetlb(vma)
++#endif
++#endif
++
+ bool uvm_hmm_must_use_sysmem(uvm_va_block_t *va_block,
+                              struct vm_area_struct *vma)
+ {
