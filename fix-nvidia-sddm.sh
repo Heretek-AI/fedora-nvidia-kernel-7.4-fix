@@ -223,21 +223,22 @@ if [[ $EUID -ne 0 ]]; then
     exec sudo "$0" "$@"
 fi
 
-info "Step 1/6: Ensuring <drm/drm_fb_helper.h> compatibility across installed 7.4+ kernel-devel trees..."
-for kdir in /usr/src/kernels/*; do
-    [[ -d "$kdir/include/drm" ]] || continue
-    if [[ -f "$kdir/include/drm/clients/drm_fbdev_helper.h" && ! -e "$kdir/include/drm/drm_fb_helper.h" ]]; then
-        ln -sf clients/drm_fbdev_helper.h "$kdir/include/drm/drm_fb_helper.h"
-        ok "Linked $kdir/include/drm/drm_fb_helper.h -> clients/drm_fbdev_helper.h"
-    fi
-done
+repair_system() {
+    info "Step 1/6: Ensuring <drm/drm_fb_helper.h> compatibility across installed 7.4+ kernel-devel trees..."
+    for kdir in /usr/src/kernels/*; do
+        [[ -d "$kdir/include/drm" ]] || continue
+        if [[ -f "$kdir/include/drm/clients/drm_fbdev_helper.h" && ! -e "$kdir/include/drm/drm_fb_helper.h" ]]; then
+            ln -sf clients/drm_fbdev_helper.h "$kdir/include/drm/drm_fb_helper.h"
+            ok "Linked $kdir/include/drm/drm_fb_helper.h -> clients/drm_fbdev_helper.h"
+        fi
+    done
 
-if [[ $INSTALL_HOOK -eq 1 ]]; then
-    info "Step 2/6: Installing persistent kernel compatibility hooks..."
-    
-    # 1. Fedora kernel-install hook (systemd-boot / kernel-install)
-    mkdir -p /etc/kernel/install.d
-    cat <<'HOOK' > /etc/kernel/install.d/90-nvidia-drm-fb-helper-compat.install
+    if [[ $INSTALL_HOOK -eq 1 ]]; then
+        info "Step 2/6: Installing persistent kernel compatibility hooks..."
+        
+        # 1. Fedora kernel-install hook (systemd-boot / kernel-install)
+        mkdir -p /etc/kernel/install.d
+        cat <<'HOOK' > /etc/kernel/install.d/90-nvidia-drm-fb-helper-compat.install
 #!/usr/bin/bash
 # Automatically links <drm/drm_fb_helper.h> to <drm/clients/drm_fbdev_helper.h>
 # on Linux 7.4+ kernels before akmods (95-akmodsposttrans.install) runs.
@@ -249,12 +250,12 @@ for kdir in "/usr/src/kernels/${KVER}" "/usr/src/kernels/${KVER}+debug" /usr/src
 done
 exit 0
 HOOK
-    chmod 0755 /etc/kernel/install.d/90-nvidia-drm-fb-helper-compat.install
-    ok "Installed /etc/kernel/install.d/90-nvidia-drm-fb-helper-compat.install"
+        chmod 0755 /etc/kernel/install.d/90-nvidia-drm-fb-helper-compat.install
+        ok "Installed /etc/kernel/install.d/90-nvidia-drm-fb-helper-compat.install"
 
-    # 2. postinst.d fallback hook
-    mkdir -p /etc/kernel/postinst.d
-    cat <<'HOOK' > /etc/kernel/postinst.d/99-nvidia-drm-fb-helper-compat
+        # 2. postinst.d fallback hook
+        mkdir -p /etc/kernel/postinst.d
+        cat <<'HOOK' > /etc/kernel/postinst.d/99-nvidia-drm-fb-helper-compat
 #!/usr/bin/env bash
 KVER="${1:-}"
 for kdir in "/usr/src/kernels/${KVER}" "/usr/src/kernels/${KVER}+debug" /usr/src/kernels/*; do
@@ -264,80 +265,83 @@ for kdir in "/usr/src/kernels/${KVER}" "/usr/src/kernels/${KVER}+debug" /usr/src
 done
 exit 0
 HOOK
-    chmod 0755 /etc/kernel/postinst.d/99-nvidia-drm-fb-helper-compat
-    ok "Installed /etc/kernel/postinst.d/99-nvidia-drm-fb-helper-compat"
-else
-    info "Step 2/6: Skipping kernel hooks installation (--no-hook)."
-fi
-
-info "Step 3/6: Patching akmods source package with Linux 7.4 compatibility patches..."
-patch_akmods_srpm
-
-info "Step 4/6: Building and installing kmod-nvidia for kernel ${TARGET_KVER}..."
-if rpm -q "kmod-nvidia-${TARGET_KVER}" >/dev/null 2>&1; then
-    ok "kmod-nvidia-${TARGET_KVER} is already installed."
-else
-    # Check if a prebuilt matching RPM exists
-    local prebuilt_rpm
-    prebuilt_rpm="$(find "$SCRIPT_DIR" /home/john/.gemini/antigravity-cli/brain/*/scratch/rpmbuild/RPMS/x86_64 -name "kmod-nvidia-${TARGET_KVER}-*.rpm" 2>/dev/null | head -n 1 || true)"
-    if [[ -n "$prebuilt_rpm" && -f "$prebuilt_rpm" ]]; then
-        info "Found prebuilt RPM: $(basename "$prebuilt_rpm"). Installing..."
-        rpm -Uvh --replacepkgs "$prebuilt_rpm"
-        depmod -a "${TARGET_KVER}"
-        ok "Installed $(basename "$prebuilt_rpm")."
+        chmod 0755 /etc/kernel/postinst.d/99-nvidia-drm-fb-helper-compat
+        ok "Installed /etc/kernel/postinst.d/99-nvidia-drm-fb-helper-compat"
     else
-        rm -f /var/cache/akmods/nvidia/*for-"${TARGET_KVER}".failed.log
-        akmods --force --kernels "${TARGET_KVER}"
-        depmod -a "${TARGET_KVER}"
-        ok "Built and installed kmod-nvidia for ${TARGET_KVER}."
+        info "Step 2/6: Skipping kernel hooks installation (--no-hook)."
     fi
-fi
 
-if [[ $FIX_SDDM_THEME -eq 1 ]] && systemctl is-enabled sddm.service >/dev/null 2>&1; then
-    info "Step 5/6: Checking SDDM theme (01-breeze-fedora)..."
-    if ! rpm -q sddm-breeze >/dev/null 2>&1; then
-        info "Installing sddm-breeze..."
-        dnf install -y sddm-breeze
-        ok "Installed sddm-breeze."
+    info "Step 3/6: Patching akmods source package with Linux 7.4 compatibility patches..."
+    patch_akmods_srpm
+
+    info "Step 4/6: Building and installing kmod-nvidia for kernel ${TARGET_KVER}..."
+    if rpm -q "kmod-nvidia-${TARGET_KVER}" >/dev/null 2>&1; then
+        ok "kmod-nvidia-${TARGET_KVER} is already installed."
     else
-        ok "SDDM Breeze theme (01-breeze-fedora) is installed."
-    fi
-else
-    info "Step 5/6: Skipping SDDM theme check."
-fi
-
-info "Step 6/6: Activating nvidia-drm driver..."
-if [[ "${TARGET_KVER}" == "$(uname -r)" ]] && [[ -d /sys/module/nouveau ]]; then
-    info "Attempting to unload fallback 'nouveau' module and load 'nvidia_drm'..."
-    systemctl stop sddm.service 2>/dev/null || true
-    for vt in /sys/class/vtconsole/vtcon*; do
-        if grep -q "frame buffer" "$vt/name" 2>/dev/null; then
-            echo 0 > "$vt/bind" 2>/dev/null || true
+        # Check if a prebuilt matching RPM exists
+        local prebuilt_rpm
+        prebuilt_rpm="$(find "$SCRIPT_DIR" /home/john/.gemini/antigravity-cli/brain/*/scratch/rpmbuild/RPMS/x86_64 -name "kmod-nvidia-${TARGET_KVER}-*.rpm" 2>/dev/null | head -n 1 || true)"
+        if [[ -n "$prebuilt_rpm" && -f "$prebuilt_rpm" ]]; then
+            info "Found prebuilt RPM: $(basename "$prebuilt_rpm"). Installing..."
+            rpm -Uvh --replacepkgs "$prebuilt_rpm"
+            depmod -a "${TARGET_KVER}"
+            ok "Installed $(basename "$prebuilt_rpm")."
+        else
+            rm -f /var/cache/akmods/nvidia/*for-"${TARGET_KVER}".failed.log
+            akmods --force --kernels "${TARGET_KVER}"
+            depmod -a "${TARGET_KVER}"
+            ok "Built and installed kmod-nvidia for ${TARGET_KVER}."
         fi
-    done
-    modprobe -r snd_hda_intel 2>/dev/null || true
+    fi
 
-    if modprobe -r nouveau 2>/dev/null; then
-        modprobe snd_hda_intel 2>/dev/null || true
-        modprobe nvidia_drm modeset=1
-        systemctl start sddm.service
-        ok "Switched from nouveau to nvidia_drm and restarted SDDM!"
+    if [[ $FIX_SDDM_THEME -eq 1 ]] && systemctl is-enabled sddm.service >/dev/null 2>&1; then
+        info "Step 5/6: Checking SDDM theme (01-breeze-fedora)..."
+        if ! rpm -q sddm-breeze >/dev/null 2>&1; then
+            info "Installing sddm-breeze..."
+            dnf install -y sddm-breeze
+            ok "Installed sddm-breeze."
+        else
+            ok "SDDM Breeze theme (01-breeze-fedora) is installed."
+        fi
     else
+        info "Step 5/6: Skipping SDDM theme check."
+    fi
+
+    info "Step 6/6: Activating nvidia-drm driver..."
+    if [[ "${TARGET_KVER}" == "$(uname -r)" ]] && [[ -d /sys/module/nouveau ]]; then
+        info "Attempting to unload fallback 'nouveau' module and load 'nvidia_drm'..."
+        systemctl stop sddm.service 2>/dev/null || true
         for vt in /sys/class/vtconsole/vtcon*; do
             if grep -q "frame buffer" "$vt/name" 2>/dev/null; then
-                echo 1 > "$vt/bind" 2>/dev/null || true
+                echo 0 > "$vt/bind" 2>/dev/null || true
             fi
         done
-        modprobe snd_hda_intel 2>/dev/null || true
-        echo ""
-        echo "======================================================================"
-        ok "Repair complete! kmod-nvidia (${TARGET_KVER}) is installed."
-        warn "Because 'nouveau' is bound to the active kernel framebuffer (fb0),"
-        warn "please reboot to load the NVIDIA driver and restore your login screen:"
-        echo ""
-        echo "    sudo systemctl reboot"
-        echo "======================================================================"
+        modprobe -r snd_hda_intel 2>/dev/null || true
+
+        if modprobe -r nouveau 2>/dev/null; then
+            modprobe snd_hda_intel 2>/dev/null || true
+            modprobe nvidia_drm modeset=1
+            systemctl start sddm.service
+            ok "Switched from nouveau to nvidia_drm and restarted SDDM!"
+        else
+            for vt in /sys/class/vtconsole/vtcon*; do
+                if grep -q "frame buffer" "$vt/name" 2>/dev/null; then
+                    echo 1 > "$vt/bind" 2>/dev/null || true
+                fi
+            done
+            modprobe snd_hda_intel 2>/dev/null || true
+            echo ""
+            echo "======================================================================"
+            ok "Repair complete! kmod-nvidia (${TARGET_KVER}) is installed."
+            warn "Because 'nouveau' is bound to the active kernel framebuffer (fb0),"
+            warn "please reboot to load the NVIDIA driver and restore your login screen:"
+            echo ""
+            echo "    sudo systemctl reboot"
+            echo "======================================================================"
+        fi
+    else
+        ok "Repair complete for kernel ${TARGET_KVER}."
     fi
-else
-    ok "Repair complete for kernel ${TARGET_KVER}."
-fi
+}
+
+repair_system
