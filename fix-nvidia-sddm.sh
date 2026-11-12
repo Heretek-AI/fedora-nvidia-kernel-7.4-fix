@@ -163,6 +163,16 @@ diagnose_system() {
         fi
     fi
 
+    # 7. Check driver vs library version mismatch
+    local expected_ver
+    expected_ver="$(rpm -q --qf '%{VERSION}' akmod-nvidia 2>/dev/null || true)"
+    local kmod_ver
+    kmod_ver="$(rpm -q --qf '%{VERSION}' "kmod-nvidia-${TARGET_KVER}" 2>/dev/null || true)"
+    if [[ -n "$expected_ver" && -n "$kmod_ver" && "$expected_ver" != "$kmod_ver" ]]; then
+        warn "Driver version mismatch: akmod-nvidia is ${expected_ver} but installed kmod-nvidia-${TARGET_KVER} is ${kmod_ver}."
+        issues=$((issues + 1))
+    fi
+
     echo "======================================================================"
     if [[ $issues -eq 0 ]]; then
         ok "No issues detected for kernel ${TARGET_KVER}."
@@ -275,12 +285,17 @@ HOOK
     patch_akmods_srpm
 
     info "Step 4/6: Building and installing kmod-nvidia for kernel ${TARGET_KVER}..."
-    if rpm -q "kmod-nvidia-${TARGET_KVER}" >/dev/null 2>&1; then
-        ok "kmod-nvidia-${TARGET_KVER} is already installed."
+    local expected_ver
+    expected_ver="$(rpm -q --qf '%{VERSION}' akmod-nvidia 2>/dev/null || true)"
+    local installed_kmod_ver
+    installed_kmod_ver="$(rpm -q --qf '%{VERSION}' "kmod-nvidia-${TARGET_KVER}" 2>/dev/null || true)"
+
+    if [[ -n "$installed_kmod_ver" && -n "$expected_ver" && "$installed_kmod_ver" == "$expected_ver" ]]; then
+        ok "kmod-nvidia-${TARGET_KVER} (${installed_kmod_ver}) is already installed and up-to-date."
     else
         # Check if a prebuilt matching RPM exists
         local prebuilt_rpm
-        prebuilt_rpm="$(find "$SCRIPT_DIR" /home/john/.gemini/antigravity-cli/brain/*/scratch/rpmbuild/RPMS/x86_64 -name "kmod-nvidia-${TARGET_KVER}-*.rpm" 2>/dev/null | head -n 1 || true)"
+        prebuilt_rpm="$(find "$SCRIPT_DIR/build" "$SCRIPT_DIR" -name "kmod-nvidia-${TARGET_KVER}-${expected_ver}*.rpm" 2>/dev/null | head -n 1 || true)"
         if [[ -n "$prebuilt_rpm" && -f "$prebuilt_rpm" ]]; then
             info "Found prebuilt RPM: $(basename "$prebuilt_rpm"). Installing..."
             if ! rpm -Uvh --nosignature --replacepkgs "$prebuilt_rpm"; then
@@ -296,6 +311,20 @@ HOOK
             ok "Built and installed kmod-nvidia for ${TARGET_KVER}."
         fi
     fi
+
+    # Also install any matching prebuilt RPMs for other installed kernels
+    info "Installing prebuilt kmod RPMs for all kernels..."
+    for rpm_file in "$SCRIPT_DIR/build"/kmod-nvidia-*-"${expected_ver}"*.rpm; do
+        if [[ -f "$rpm_file" ]]; then
+            info "Applying $(basename "$rpm_file")..."
+            rpm -Uvh --nosignature --replacepkgs "$rpm_file" >/dev/null 2>&1 || true
+        fi
+    done
+
+    # Run akmods to ensure all kernels and initramfs are consistent
+    info "Checking other installed kernels for kmod updates..."
+    rm -f /var/cache/akmods/nvidia/*.failed.log
+    akmods --force || true
 
     if [[ $FIX_SDDM_THEME -eq 1 ]] && systemctl is-enabled sddm.service >/dev/null 2>&1; then
         info "Step 5/6: Checking SDDM theme (01-breeze-fedora)..."
